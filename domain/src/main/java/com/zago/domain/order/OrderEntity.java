@@ -17,7 +17,7 @@ public class OrderEntity {
     @Column(name = "customer_id")
     private Long customerId;
     
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItemEntity> items = new ArrayList<>();
     
     public OrderEntity() {

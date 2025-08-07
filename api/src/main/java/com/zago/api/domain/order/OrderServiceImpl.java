@@ -1,5 +1,7 @@
 package com.zago.api.domain.order;
 
+import com.zago.api.domain.order.dto.OrderDto;
+import com.zago.api.domain.order.dto.OrderItemDto;
 import com.zago.domain.order.OrderEntity;
 import com.zago.domain.order.OrderRepository;
 import com.zago.domain.order.item.OrderItemEntity;
@@ -34,29 +36,7 @@ public class OrderServiceImpl implements OrderService {
     public List<OrderDto> getOrdersByCustomer(Long customerId) {
         List<OrderEntity> orders = orderRepository.findByCustomerId(customerId);
         return orders.stream()
-                .map(this::mapToDto)
+                .map(OrderDto::FromEntity)
                 .collect(Collectors.toList());
-    }
-    
-    private OrderDto mapToDto(OrderEntity entity) {
-        List<OrderItemDto> itemDtos = entity.getItems().stream()
-                .map(this::mapToItemDto)
-                .collect(Collectors.toList());
-                
-        return new OrderDto(
-                entity.getOrderId(),
-                entity.getCustomerId(),
-                itemDtos,
-                entity.getTotalValue()
-        );
-    }
-    
-    private OrderItemDto mapToItemDto(OrderItemEntity entity) {
-        return new OrderItemDto(
-                entity.getProduct(),
-                entity.getQuantity(),
-                entity.getPrice(),
-                entity.getTotalValue()
-        );
     }
 }

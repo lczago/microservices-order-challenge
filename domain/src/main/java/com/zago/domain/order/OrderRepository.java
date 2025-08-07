@@ -11,8 +11,9 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     long countByCustomerId(Long customerId);
-    
-    List<OrderEntity> findByCustomerId(Long customerId);
+
+    @Query("SELECT o FROM OrderEntity o LEFT JOIN FETCH o.items WHERE o.customerId = :customerId")
+    List<OrderEntity> findByCustomerId(@Param("customerId") Long customerId);
 
     @Query("SELECT SUM(i.price * i.quantity) FROM OrderEntity o JOIN o.items i WHERE o.orderId = :orderId")
     BigDecimal calculateOrderTotal(@Param("orderId") Long orderId);

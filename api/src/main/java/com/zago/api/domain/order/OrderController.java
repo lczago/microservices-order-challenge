@@ -1,82 +1,66 @@
 package com.zago.api.domain.order;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import com.zago.api.domain.order.dto.CustomerOrderQuantityDto;
+import com.zago.api.domain.order.dto.OrderDto;
+import com.zago.api.domain.order.dto.OrderTotalDto;
+import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/orders")
-@Tag(name = "Orders", description = "Operations related to orders")
-public class OrderController {
+public class OrderController implements OrderControllerDoc {
+
+    private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
 
     @Autowired
     private OrderService orderService;
 
-    @Operation(
-        summary = "Get the total value of an order",
-        description = "Retrieves the total monetary value of an order by summing the price * quantity of all items"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200", 
-            description = "Order total retrieved successfully",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = BigDecimal.class))
-        ),
-        @ApiResponse(responseCode = "404", description = "Order not found")
-    })
-    @GetMapping("/{orderId}/total")
-    public ResponseEntity<BigDecimal> getOrderTotal(
-            @Parameter(description = "ID of the order to retrieve the total for") 
-            @PathVariable("orderId") Long orderId) {
-        BigDecimal total = orderService.getOrderTotal(orderId);
-        return ResponseEntity.ok(total);
+    @Override
+    public ResponseEntity<OrderTotalDto> getOrderTotal(Long orderId) {
+        try {
+            BigDecimal total = orderService.getOrderTotal(orderId);
+            return ResponseEntity.ok(new OrderTotalDto(total));
+        } catch (EntityNotFoundException e) {
+            logger.warn("Order not found for id {}: {}", orderId, e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Error getting total for order id {}", orderId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
-    @Operation(
-        summary = "Count orders by customer",
-        description = "Returns the total number of orders placed by a specific customer"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200", 
-            description = "Order count retrieved successfully",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = Long.class))
-        )
-    })
-    @GetMapping("/count/customer/{customerId}")
-    public ResponseEntity<Long> getOrderCountByCustomer(
-            @Parameter(description = "ID of the customer to count orders for") 
-            @PathVariable("customerId") Long customerId) {
-        long count = orderService.countOrdersByCustomer(customerId);
-        return ResponseEntity.ok(count);
+    @Override
+    public ResponseEntity<CustomerOrderQuantityDto> getOrderCountByCustomer(Long customerId) {
+        try {
+            long count = orderService.countOrdersByCustomer(customerId);
+            return ResponseEntity.ok(new CustomerOrderQuantityDto(count));
+        } catch (EntityNotFoundException e) {
+            logger.warn("Customer not found for id {}: {}", customerId, e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Error counting orders for customer id {}", customerId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
-    @Operation(
-        summary = "Get all orders for a customer",
-        description = "Retrieves all orders placed by a specific customer, including their items and total values"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200", 
-            description = "Orders retrieved successfully",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderDto.class))
-        )
-    })
-    @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<OrderDto>> getOrdersByCustomer(
-            @Parameter(description = "ID of the customer to retrieve orders for") 
-            @PathVariable("customerId") Long customerId) {
-        List<OrderDto> orders = orderService.getOrdersByCustomer(customerId);
-        return ResponseEntity.ok(orders);
+    @Override
+    public ResponseEntity<List<OrderDto>> getOrdersByCustomer(Long customerId) {
+        try {
+            List<OrderDto> orders = orderService.getOrdersByCustomer(customerId);
+            return ResponseEntity.ok(orders);
+        } catch (EntityNotFoundException e) {
+            logger.warn("Customer not found for id {}: {}", customerId, e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            logger.error("Error getting orders for customer id {}", customerId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }
