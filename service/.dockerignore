@@ -1,0 +1,52 @@
+# Gradle
+.gradle/
+build/
+!build/libs/*.jar
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Docker
+.dockerignore
+Dockerfile
+
+# Misc
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Don't ignore these files
+!gradle/wrapper/gradle-wrapper.jar
