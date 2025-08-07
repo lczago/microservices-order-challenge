@@ -1,0 +1,14 @@
+# Plano de Trabalho - Proposta Inicial
+
+| Fase                           | Atividade/Tarefa                                                      | Estimativa (Horas) | Horas Realizadas | Status    | Observações                                                        |
+|:-------------------------------|:----------------------------------------------------------------------|:-------------------|:-----------------|:----------|:-------------------------------------------------------------------|
+| **1. Planejamento e Fundação** | Análise de Requisitos e Elaboração deste Plano de Trabalho            | 1.0                | 1.0              | Concluído | Primeira entrega do desafio, alinhando escopo e atividades.        |
+|                                | Estrutura do Projeto (Multi-módulo)                                   | 1.0                |                  | A Fazer   | Definição da arquitetura e setup inicial do repositório.           |
+|                                | Ambiente Docker, Modelagem de Dados e Migrations (Liquibase)          | 1.5                |                  | A Fazer   | Configuração do docker-compose e versionamento da base de dados.   |
+| **2. Desenvolvimento**         | Implementação do Microserviço Consumidor (RabbitMQ)                   | 2.0                |                  | A Fazer   | Lógica de consumo, processamento e persistência dos pedidos.       |
+|                                | Implementação da API REST (Endpoints, DTOs, Queries)                  | 2.0                |                  | A Fazer   | Criação de todos os endpoints solicitados para consulta dos dados. |
+| **3. Qualidade e Finalização** | Documentação da API (Swagger)                                         | 0.5                |                  | A Fazer   | Documentação automática da API.                                    |
+|                                | Implementação de Testes End-to-End com Testcontainers                 | 2.0                |                  | A Fazer   | Validar o fluxo completo: publicação na fila e consulta via API.   |
+|                                | Criação dos Diagramas (Arquitetura e Implantação)                     | 1.5                |                  | A Fazer   | Desenvolver os diagramas solicitados para o relatório técnico.     |
+| **4. Entrega**                 | Redação do Relatório Final, `README.md` e Publicação da Imagem Docker | 2.0                |                  | A Fazer   | Finalizar toda a documentação e artefatos de entrega do projeto.   |
+| **Total**                      |                                                                       | **13.5**           | **1.0**          |           | Plano de trabalho para execução do desafio em 2 dias.              |
