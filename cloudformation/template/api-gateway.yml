@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  CloudFormation template for deploying the dock REST API Gateway.
+  This template creates an API Gateway with a VPC Link to a Network Load Balancer.
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: The name of the application.
+
+Resources:
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !ImportValue ApiGatewayCloudWatchLogsRoleArn
+
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/api-gateway/${ApplicationName}
+      RetentionInDays: 7
+
+  ApiGatewayVpcLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Name: !Sub '${ApplicationName}-vpc-link'
+      TargetArns:
+        - Fn::ImportValue:
+            !Sub "${ApplicationName}-NlbArn"
+
+  DockRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: 'Dock AWS API Gateway'
+      Description: API Gateway for Dock API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Parameters:
+        nlb_dns: !ImportValue LoadBalancerDNS
+        vpc_link_id: !Ref ApiGatewayVpcLink
+      Policy:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: execute-api:Invoke
+            Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*
+
+  ProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref DockRestApi
+      ParentId: !GetAtt DockRestApi.RootResourceId
+      PathPart: '{proxy+}'
+
+  ProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref DockRestApi
+      ResourceId: !Ref ProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.path.proxy: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: ANY
+        Uri: !Sub
+          - 'http://${NlbDns}/{proxy}'
+          - { NlbDns: !ImportValue LoadBalancerDNS }
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref ApiGatewayVpcLink
+        RequestParameters:
+          integration.request.path.proxy: method.request.path.proxy
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - DockRestApi
+      - ProxyMethod
+    Properties:
+      RestApiId: !Ref DockRestApi
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: 'default'
+      DeploymentId: !Ref ApiGatewayDeployment
+      RestApiId: !Ref DockRestApi
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: >-
+          { "requestId": "$context.requestId", "sourceIp": "$context.identity.sourceIp" }
+
+Outputs:
+  ApiGatewayInvokeURL:
+    Description: "The invoke URL for the deployed API stage"
+    Value: !Sub 'https://${DockRestApi}.execute-api.${AWS::Region}.amazonaws.com/default'

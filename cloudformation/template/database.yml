@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create a PostgreSQL RDS database instance in a VPC.
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: The name of the application. Used to name the resources.
+
+  DbName:
+    Type: String
+    Description: The name for the database
+    Default: "account"
+
+  DbSecretsName:
+    Type: String
+    Description: The name of the AWS Secrets Manager secret containing the database credentials.
+    Default: "db_secrets"
+
+Resources:
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for the RDS database"
+      SubnetIds: !Split [",", !ImportValue PrivateSubnetIds]
+      Tags:
+        - Key: Name
+          Value: !Sub "${DbName}-db-subnet-group"
+
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: db_secrets
+      Description: "PostgreSQL database credentials"
+      GenerateSecretString:
+        SecretStringTemplate: '{"user": "lczago"}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludePunctuation: true
+
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: "Parameter group to disable SSL requirement"
+      Family: postgres17
+      Parameters:
+        rds.force_ssl: 0
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub "${DbName}-postgres-17"
+      DBName: !Ref DbName
+      Engine: "postgres"
+      EngineVersion: "17"
+      DBInstanceClass: "db.t3.micro"
+      AllocatedStorage: "5"
+      Port: "5432"
+      MasterUsername: !Join [ '', [ '{{resolve:secretsmanager:', !Ref DBSecret, ':SecretString:user}}' ] ]
+      MasterUserPassword: !Join [ '', [ '{{resolve:secretsmanager:', !Ref DBSecret, ':SecretString:password}}' ] ]
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups:
+        - !ImportValue SgDbId
+      StorageEncrypted: false
+      DeletionProtection: false
+      DBParameterGroupName: !Ref DBParameterGroup
+
+  RDSEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/rds/${ApplicationName}/endpoint"
+      Type: String
+      Value: !GetAtt DatabaseInstance.Endpoint.Address
+      Description: "RDS endpoint address"
+
+  RDSPortParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/rds/${ApplicationName}/port"
+      Type: String
+      Value: !GetAtt DatabaseInstance.Endpoint.Port
+      Description: "RDS port"
+
+Outputs:
+  DbInstanceEndpoint:
+    Description: "The connection endpoint for the database instance."
+    Value: !GetAtt DatabaseInstance.Endpoint.Address
+  DbInstancePort:
+    Description: "The connection port for the database instance."
+    Value: !GetAtt DatabaseInstance.Endpoint.Port
+  DbInstanceArn:
+    Description: "The ARN of the database instance."
+    Value: !Ref DatabaseInstance

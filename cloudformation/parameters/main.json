@@ -1,0 +1,30 @@
+[
+  {
+    "ParameterKey": "ApplicationName",
+    "ParameterValue": "dock-api"
+  },
+  {
+    "ParameterKey": "DbName",
+    "ParameterValue": "account"
+  },
+  {
+    "ParameterKey": "DbSecretsName",
+    "ParameterValue": "db_secrets"
+  },
+  {
+    "ParameterKey": "EcrRepositoryUrl",
+    "ParameterValue": "<api ecr uri>"
+  },
+  {
+    "ParameterKey": "ServiceEcrRepositoryUrl",
+    "ParameterValue": "<service ecr uri>"
+  },
+  {
+    "ParameterKey": "RabbitEcrRepositoryUrl",
+    "ParameterValue": "<rabbitmq ecr uri>"
+  },
+  {
+    "ParameterKey": "Bucket",
+    "ParameterValue": "bucket name"
+  }
+]

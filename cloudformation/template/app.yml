@@ -1,0 +1,318 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for creating a Network Load Balancer and ECS service.
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: The name of the application.
+
+  DbName:
+    Type: String
+    Description: The name for the database
+    Default: "account"
+
+  DbSecretsName:
+    Type: String
+    Description: The name of the AWS Secrets Manager secret containing the database credentials.
+    Default: "db_secrets"
+
+  EcrRepositoryUrl:
+    Type: String
+    Description: The URL of the ECR repository.
+
+  ServiceEcrRepositoryUrl:
+    Type: String
+    Description: The URL of the Service ECR repository.
+
+  RabbitEcrRepositoryUrl:
+    Type: String
+    Description: The URL of the RabbitMQ ECR repository.
+
+Resources:
+  NetworkLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${ApplicationName}-nlb'
+      Type: network
+      Scheme: internal
+      Subnets: !Split [ ",", !ImportValue PrivateSubnetIds ]
+      Tags:
+        - Key: Name
+          Value: !Sub "${ApplicationName}-nlb"
+
+  EcsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ApplicationName}-nlb-tg'
+      VpcId: !ImportValue VpcId
+      Protocol: TCP
+      Port: 8080
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPort: '8080'
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /actuator/health
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      HealthCheckTimeoutSeconds: 10
+      Matcher:
+        HttpCode: '200'
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 10
+      Tags:
+        - Key: Name
+          Value: !Sub "${ApplicationName}-nlb-tg-http"
+
+  TcpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref NetworkLoadBalancer
+      Port: 80
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref EcsTargetGroup
+
+  EcsTargetGroupRabbit:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ApplicationName}-nlb-tg-rabbit'
+      VpcId: !ImportValue VpcId
+      Protocol: TCP
+      Port: 5672
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPort: '5672'
+      HealthCheckProtocol: TCP
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      HealthCheckTimeoutSeconds: 10
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 10
+      Tags:
+        - Key: Name
+          Value: !Sub "${ApplicationName}-nlb-tg-rabbit"
+
+  TcpListenerRabbit:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref NetworkLoadBalancer
+      Port: 5672
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref EcsTargetGroupRabbit
+
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${ApplicationName}-cluster'
+
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${ApplicationName}-logs"
+      RetentionInDays: 14
+
+  EcsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref ApplicationName
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '1024'
+      Memory: '2048'
+      ExecutionRoleArn: !ImportValue ExecutionRoleArn
+      TaskRoleArn: !ImportValue TaskRoleArn
+      ContainerDefinitions:
+        - Name: !Ref ApplicationName
+          Image: !Sub '${EcrRepositoryUrl}:latest'
+          Secrets:
+            - Name: SPRING_DATASOURCE_USERNAME
+              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretsName}:user::"
+            - Name: SPRING_DATASOURCE_PASSWORD
+              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretsName}:password::"
+          Environment:
+            - Name: SPRING_DATASOURCE_URL
+              Value: !Sub "jdbc:postgresql://{{resolve:ssm:/rds/${ApplicationName}/endpoint:1}}:{{resolve:ssm:/rds/${ApplicationName}/port:1}}/${DbName}"
+            - Name: API_SERVER_PORT
+              Value: "8080"
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8080
+              HostPort: 8080
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "/ecs/${ApplicationName}-logs"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+          Cpu: 1024
+          Memory: 2048
+
+  EcsService:
+    Type: AWS::ECS::Service
+    DependsOn: TcpListener
+    Properties:
+      ServiceName: !Ref ApplicationName
+      Cluster: !GetAtt EcsCluster.Arn
+      TaskDefinition: !Ref EcsTaskDefinition
+      DesiredCount: 1
+      EnableExecuteCommand: true
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets: !Split [ ",", !ImportValue PrivateSubnetIds ]
+          SecurityGroups:
+            - !ImportValue SgEcsId
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      LoadBalancers:
+        - TargetGroupArn: !Ref EcsTargetGroup
+          ContainerName: !Ref ApplicationName
+          ContainerPort: 8080
+
+  EcsTaskDefinitionRabbit:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ApplicationName}-rabbit'
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn: !ImportValue ExecutionRoleArn
+      TaskRoleArn: !ImportValue TaskRoleArn
+      ContainerDefinitions:
+        - Name: rabbitmq
+          Image: !Sub '${RabbitEcrRepositoryUrl}:latest'
+          Environment:
+            - Name: RABBITMQ_DEFAULT_USER
+              Value: 'guest'
+            - Name: RABBITMQ_DEFAULT_PASS
+              Value: 'guest'
+          Essential: true
+          PortMappings:
+            - ContainerPort: 5672
+              HostPort: 5672
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "/ecs/${ApplicationName}-logs"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  EcsServiceRabbit:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - TcpListenerRabbit
+    Properties:
+      ServiceName: !Sub '${ApplicationName}-rabbit'
+      Cluster: !GetAtt EcsCluster.Arn
+      TaskDefinition: !Ref EcsTaskDefinitionRabbit
+      DesiredCount: 1
+      EnableExecuteCommand: true
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets: !Split [ ",", !ImportValue PrivateSubnetIds ]
+          SecurityGroups:
+            - !ImportValue SgEcsId
+      LoadBalancers:
+        - TargetGroupArn: !Ref EcsTargetGroupRabbit
+          ContainerName: rabbitmq
+          ContainerPort: 5672
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+
+  EcsTaskDefinitionService:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ApplicationName}-service'
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '1024'
+      Memory: '2048'
+      ExecutionRoleArn: !ImportValue ExecutionRoleArn
+      TaskRoleArn: !ImportValue TaskRoleArn
+      ContainerDefinitions:
+        - Name: !Sub '${ApplicationName}-service'
+          Image: !Sub '${ServiceEcrRepositoryUrl}:latest'
+          Secrets:
+            - Name: SPRING_DATASOURCE_USERNAME
+              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretsName}:user::"
+            - Name: SPRING_DATASOURCE_PASSWORD
+              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretsName}:password::"
+          Environment:
+            - Name: SPRING_DATASOURCE_URL
+              Value: !Sub "jdbc:postgresql://{{resolve:ssm:/rds/${ApplicationName}/endpoint:1}}:{{resolve:ssm:/rds/${ApplicationName}/port:1}}/${DbName}"
+            - Name: SERVICE_SERVER_PORT
+              Value: '8081'
+            - Name: SPRING_RABBITMQ_HOST
+              Value: !GetAtt NetworkLoadBalancer.DNSName
+            - Name: SPRING_RABBITMQ_PORT
+              Value: '5672'
+            - Name: SPRING_RABBITMQ_USERNAME
+              Value: 'guest'
+            - Name: SPRING_RABBITMQ_PASSWORD
+              Value: 'guest'
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8081
+              HostPort: 8081
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Sub "/ecs/${ApplicationName}-logs"
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  EcsServiceService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${ApplicationName}-service'
+      Cluster: !GetAtt EcsCluster.Arn
+      TaskDefinition: !Ref EcsTaskDefinitionService
+      DesiredCount: 1
+      EnableExecuteCommand: true
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets: !Split [ ",", !ImportValue PrivateSubnetIds ]
+          SecurityGroups:
+            - !ImportValue SgEcsId
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+
+Outputs:
+  LoadBalancerDNSName:
+    Description: The DNS name of the Network Load Balancer.
+    Value: !GetAtt NetworkLoadBalancer.DNSName
+    Export:
+      Name: LoadBalancerDNS
+  TargetGroupArn:
+    Description: The ARN of the Target Group.
+    Value: !Ref EcsTargetGroup
+  ListenerArn:
+    Description: The ARN of the Listener.
+    Value: !Ref TcpListener
+  NetworkLoadBalancerArn:
+    Description: The ARN of the Network Load Balancer.
+    Value: !Ref NetworkLoadBalancer
+    Export:
+      Name: !Sub "${ApplicationName}-NlbArn"
