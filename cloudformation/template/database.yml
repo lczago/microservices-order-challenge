@@ -29,7 +29,7 @@ Resources:
   DBSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: db_secrets
+      Name: !Ref DbSecretsName
       Description: "PostgreSQL database credentials"
       GenerateSecretString:
         SecretStringTemplate: '{"user": "lczago"}'

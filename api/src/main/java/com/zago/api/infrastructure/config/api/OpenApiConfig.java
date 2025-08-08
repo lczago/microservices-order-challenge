@@ -26,7 +26,10 @@ public class OpenApiConfig {
                 .servers(List.of(
                         new Server()
                                 .url("/")
-                                .description("Default Server URL")
+                                .description("Default Server URL"),
+                        new Server()
+                                .url("/default")
+                                .description("AWS API Gateway Server URL")
                 ));
     }
 }

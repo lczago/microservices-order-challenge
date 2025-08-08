@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: |
-  CloudFormation template for deploying the dock REST API Gateway.
+  CloudFormation template for deploying the orders REST API Gateway.
   This template creates an API Gateway with a VPC Link to a Network Load Balancer.
 
 Parameters:
@@ -28,11 +28,11 @@ Resources:
         - Fn::ImportValue:
             !Sub "${ApplicationName}-NlbArn"
 
-  DockRestApi:
+  OrdersRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: 'Dock AWS API Gateway'
-      Description: API Gateway for Dock API
+      Name: 'Orders AWS API Gateway'
+      Description: API Gateway for Orders API
       EndpointConfiguration:
         Types:
           - REGIONAL
@@ -50,14 +50,14 @@ Resources:
   ProxyResource:
     Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref DockRestApi
-      ParentId: !GetAtt DockRestApi.RootResourceId
+      RestApiId: !Ref OrdersRestApi
+      ParentId: !GetAtt OrdersRestApi.RootResourceId
       PathPart: '{proxy+}'
 
   ProxyMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref DockRestApi
+      RestApiId: !Ref OrdersRestApi
       ResourceId: !Ref ProxyResource
       HttpMethod: ANY
       AuthorizationType: NONE
@@ -77,17 +77,17 @@ Resources:
   ApiGatewayDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
-      - DockRestApi
+      - OrdersRestApi
       - ProxyMethod
     Properties:
-      RestApiId: !Ref DockRestApi
+      RestApiId: !Ref OrdersRestApi
 
   ApiGatewayStage:
     Type: AWS::ApiGateway::Stage
     Properties:
       StageName: 'default'
       DeploymentId: !Ref ApiGatewayDeployment
-      RestApiId: !Ref DockRestApi
+      RestApiId: !Ref OrdersRestApi
       MethodSettings:
         - ResourcePath: '/*'
           HttpMethod: '*'
@@ -101,4 +101,4 @@ Resources:
 Outputs:
   ApiGatewayInvokeURL:
     Description: "The invoke URL for the deployed API stage"
-    Value: !Sub 'https://${DockRestApi}.execute-api.${AWS::Region}.amazonaws.com/default'
+    Value: !Sub 'https://${OrdersRestApi}.execute-api.${AWS::Region}.amazonaws.com/default'

@@ -193,16 +193,6 @@ Resources:
           ToPort: 8080
           CidrIp: "10.99.0.64/28"
           Description: "Allow traffic from the NLB subnet 2"
-        - IpProtocol: tcp
-          FromPort: 5672
-          ToPort: 5672
-          CidrIp: "10.99.0.48/28"
-          Description: "Allow RabbitMQ traffic from the NLB subnet 1"
-        - IpProtocol: tcp
-          FromPort: 5672
-          ToPort: 5672
-          CidrIp: "10.99.0.64/28"
-          Description: "Allow RabbitMQ traffic from the NLB subnet 2"
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: 5432

@@ -9,24 +9,12 @@ Parameters:
   DbName:
     Type: String
     Description: The name for the database
-    Default: "account"
+    Default: "orders"
 
   DbSecretsName:
     Type: String
     Description: The name of the AWS Secrets Manager secret containing the database credentials.
     Default: "db_secrets"
-
-  EcrRepositoryUrl:
-    Type: String
-    Description: The URL of the ECR repository.
-
-  ServiceEcrRepositoryUrl:
-    Type: String
-    Description: The URL of the Service ECR repository.
-
-  RabbitEcrRepositoryUrl:
-    Type: String
-    Description: The URL of the RabbitMQ ECR repository.
 
 Resources:
   NetworkLoadBalancer:
@@ -75,42 +63,31 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref EcsTargetGroup
 
-  EcsTargetGroupRabbit:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub '${ApplicationName}-nlb-tg-rabbit'
-      VpcId: !ImportValue VpcId
-      Protocol: TCP
-      Port: 5672
-      TargetType: ip
-      HealthCheckEnabled: true
-      HealthCheckIntervalSeconds: 30
-      HealthCheckPort: '5672'
-      HealthCheckProtocol: TCP
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 2
-      HealthCheckTimeoutSeconds: 10
-      TargetGroupAttributes:
-        - Key: deregistration_delay.timeout_seconds
-          Value: 10
-      Tags:
-        - Key: Name
-          Value: !Sub "${ApplicationName}-nlb-tg-rabbit"
-
-  TcpListenerRabbit:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref NetworkLoadBalancer
-      Port: 5672
-      Protocol: TCP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref EcsTargetGroupRabbit
 
   EcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub '${ApplicationName}-cluster'
+
+  ServiceDiscoveryNamespace:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties:
+      Name: !Sub '${ApplicationName}.local'
+      Vpc: !ImportValue VpcId
+      Description: Service discovery namespace for private services
+
+  ServiceDiscoveryRabbitService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: rabbit
+      NamespaceId: !Ref ServiceDiscoveryNamespace
+      DnsConfig:
+        DnsRecords:
+          - Type: A
+            TTL: 60
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
 
   CloudWatchLogsGroup:
     Type: AWS::Logs::LogGroup
@@ -131,7 +108,7 @@ Resources:
       TaskRoleArn: !ImportValue TaskRoleArn
       ContainerDefinitions:
         - Name: !Ref ApplicationName
-          Image: !Sub '${EcrRepositoryUrl}:latest'
+          Image: lczago/orders-api:latest
           Secrets:
             - Name: SPRING_DATASOURCE_USERNAME
               ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretsName}:user::"
@@ -142,6 +119,8 @@ Resources:
               Value: !Sub "jdbc:postgresql://{{resolve:ssm:/rds/${ApplicationName}/endpoint:1}}:{{resolve:ssm:/rds/${ApplicationName}/port:1}}/${DbName}"
             - Name: API_SERVER_PORT
               Value: "8080"
+            - Name: AWS_PATH
+              Value: "/default"
           Essential: true
           PortMappings:
             - ContainerPort: 8080
@@ -193,7 +172,7 @@ Resources:
       TaskRoleArn: !ImportValue TaskRoleArn
       ContainerDefinitions:
         - Name: rabbitmq
-          Image: !Sub '${RabbitEcrRepositoryUrl}:latest'
+          Image: rabbitmq:4-management
           Environment:
             - Name: RABBITMQ_DEFAULT_USER
               Value: 'guest'
@@ -212,8 +191,6 @@ Resources:
 
   EcsServiceRabbit:
     Type: AWS::ECS::Service
-    DependsOn:
-      - TcpListenerRabbit
     Properties:
       ServiceName: !Sub '${ApplicationName}-rabbit'
       Cluster: !GetAtt EcsCluster.Arn
@@ -228,10 +205,9 @@ Resources:
           Subnets: !Split [ ",", !ImportValue PrivateSubnetIds ]
           SecurityGroups:
             - !ImportValue SgEcsId
-      LoadBalancers:
-        - TargetGroupArn: !Ref EcsTargetGroupRabbit
+      ServiceRegistries:
+        - RegistryArn: !GetAtt ServiceDiscoveryRabbitService.Arn
           ContainerName: rabbitmq
-          ContainerPort: 5672
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
@@ -249,7 +225,7 @@ Resources:
       TaskRoleArn: !ImportValue TaskRoleArn
       ContainerDefinitions:
         - Name: !Sub '${ApplicationName}-service'
-          Image: !Sub '${ServiceEcrRepositoryUrl}:latest'
+          Image: lczago/orders-service:latest
           Secrets:
             - Name: SPRING_DATASOURCE_USERNAME
               ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretsName}:user::"
@@ -261,7 +237,7 @@ Resources:
             - Name: SERVICE_SERVER_PORT
               Value: '8081'
             - Name: SPRING_RABBITMQ_HOST
-              Value: !GetAtt NetworkLoadBalancer.DNSName
+              Value: !Sub 'rabbit.${ApplicationName}.local'
             - Name: SPRING_RABBITMQ_PORT
               Value: '5672'
             - Name: SPRING_RABBITMQ_USERNAME

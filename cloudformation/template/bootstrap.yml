@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  CloudFormation template to create an ECR repository, roles, policies and CloudWatch Log Group.
+  CloudFormation template to create roles, policies and CloudWatch Log Group.
 
 Parameters:
   ApplicationName:
@@ -8,84 +8,6 @@ Parameters:
     Description: The name of the application. Used to name the resources.
 
 Resources:
-  ECRRepository:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub "${ApplicationName}-ecr"
-      ImageTagMutability: MUTABLE
-      ImageScanningConfiguration:
-        ScanOnPush: false
-      LifecyclePolicy:
-        LifecyclePolicyText: |
-          {
-            "rules": [
-              {
-                "rulePriority": 1,
-                "description": "Keep last 2 images",
-                "selection": {
-                  "tagStatus": "any",
-                  "countType": "imageCountMoreThan",
-                  "countNumber": 2
-                },
-                "action": {
-                  "type": "expire"
-                }
-              }
-            ]
-          }
-
-  ECRRepositoryService:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub "${ApplicationName}-service-ecr"
-      ImageTagMutability: MUTABLE
-      ImageScanningConfiguration:
-        ScanOnPush: false
-      LifecyclePolicy:
-        LifecyclePolicyText: |
-          {
-            "rules": [
-              {
-                "rulePriority": 1,
-                "description": "Keep last 2 images",
-                "selection": {
-                  "tagStatus": "any",
-                  "countType": "imageCountMoreThan",
-                  "countNumber": 2
-                },
-                "action": {
-                  "type": "expire"
-                }
-              }
-            ]
-          }
-
-  ECRRepositoryRabbitMQ:
-    Type: AWS::ECR::Repository
-    Properties:
-      RepositoryName: !Sub "${ApplicationName}-rabbitmq-ecr"
-      ImageTagMutability: MUTABLE
-      ImageScanningConfiguration:
-        ScanOnPush: false
-      LifecyclePolicy:
-        LifecyclePolicyText: |
-          {
-            "rules": [
-              {
-                "rulePriority": 1,
-                "description": "Keep last 2 images",
-                "selection": {
-                  "tagStatus": "any",
-                  "countType": "imageCountMoreThan",
-                  "countNumber": 2
-                },
-                "action": {
-                  "type": "expire"
-                }
-              }
-            ]
-          }
-
   ApiGatewayLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -116,12 +38,6 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
-              - 'ecr:GetAuthorizationToken'
-              - 'ecr:BatchCheckLayerAvailability'
-              - 'ecr:GetDownloadUrlForLayer'
-              - 'ecr:BatchGetImage'
-              - 'ecr:PutImage'
-              - 'ecr:ListImages'
               - 'logs:CreateLogStream'
               - 'logs:CreateLogGroup'
               - 'logs:PutLogEvents'
@@ -185,36 +101,6 @@ Resources:
                 Resource: '*'
 
 Outputs:
-  ECRRepositoryName:
-    Description: The name of the ECR repository.
-    Value: !Ref ECRRepository
-  ECRRepositoryArn:
-    Description: The ARN of the ECR repository.
-    Value: !GetAtt ECRRepository.Arn
-  ECRRepositoryUri:
-    Description: The URI of the ECR repository.
-    Value: !GetAtt ECRRepository.RepositoryUri
-
-  ECRServiceRepositoryName:
-    Description: The name of the Service ECR repository.
-    Value: !Ref ECRRepositoryService
-  ECRServiceRepositoryArn:
-    Description: The ARN of the Service ECR repository.
-    Value: !GetAtt ECRRepositoryService.Arn
-  ECRServiceRepositoryUri:
-    Description: The URI of the Service ECR repository.
-    Value: !GetAtt ECRRepositoryService.RepositoryUri
-
-  ECRRabbitMQRepositoryName:
-    Description: The name of the RabbitMQ ECR repository.
-    Value: !Ref ECRRepositoryRabbitMQ
-  ECRRabbitMQRepositoryArn:
-    Description: The ARN of the RabbitMQ ECR repository.
-    Value: !GetAtt ECRRepositoryRabbitMQ.Arn
-  ECRRabbitMQRepositoryUri:
-    Description: The URI of the RabbitMQ ECR repository.
-    Value: !GetAtt ECRRepositoryRabbitMQ.RepositoryUri
-
   ApiGatewayLogGroupName:
     Description: The name of the CloudWatch Log Group for the API Gateway.
     Value: !Ref ApiGatewayLogGroup

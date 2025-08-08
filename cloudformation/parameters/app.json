@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "ApplicationName",
+    "ParameterValue": "orders"
+  },
+  {
+    "ParameterKey": "DbSecretsName",
+    "ParameterValue": "orders_db_secrets"
+  }
+]
