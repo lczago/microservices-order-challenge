@@ -16,12 +16,11 @@ public class OrderMessageListener {
     @Autowired
     private OrderRepository orderRepository;
 
-    @RabbitListener(queues = "${rabbitmq.queue.order}")
+    @RabbitListener(queues = "${rabbitmq.queue.order}", containerFactory = "orderListenerContainerFactory")
     public void receiveOrderMessage(OrderMessage orderMessage) {
         logger.info("Received order message: {}", orderMessage.orderId());
         OrderEntity orderEntity = orderMessage.mapToEntity();
         orderRepository.save(orderEntity);
         logger.info("Order processed successfully: {}", orderMessage.orderId());
     }
-
 }

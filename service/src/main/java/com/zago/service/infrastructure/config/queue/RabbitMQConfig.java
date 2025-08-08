@@ -1,9 +1,10 @@
-package com.zago.service.infrastructure.config;
+package com.zago.service.infrastructure.config.queue;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
+@EnableRabbit
 public class RabbitMQConfig {
 
     @Value("${rabbitmq.queue.order}")
@@ -72,7 +74,7 @@ public class RabbitMQConfig {
         return rabbitTemplate;
     }
 
-    @Bean
+    @Bean("orderListenerContainerFactory")
     public RabbitListenerContainerFactory<?> rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
@@ -85,6 +87,8 @@ public class RabbitMQConfig {
         backOffPolicy.setMultiplier(2.0);
         backOffPolicy.setMaxInterval(10000);
 
+        retryTemplate.setBackOffPolicy(backOffPolicy);
+
         SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
         retryPolicy.setMaxAttempts(maxRetries);
         retryTemplate.setRetryPolicy(retryPolicy);
@@ -93,5 +97,4 @@ public class RabbitMQConfig {
 
         return factory;
     }
-
 }

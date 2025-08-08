@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <databaseChangeLog
-        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
@@ -15,7 +15,7 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
-        
+
         <comment>Create order_items table</comment>
         <createTable tableName="order_items">
             <column name="id" type="bigint" autoIncrement="true">
@@ -34,11 +34,11 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
-        
+
         <createIndex indexName="idx_orders_customer_id" tableName="orders">
             <column name="customer_id"/>
         </createIndex>
-        
+
         <createIndex indexName="idx_order_items_order_id" tableName="order_items">
             <column name="order_id"/>
         </createIndex>
