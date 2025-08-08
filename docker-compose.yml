@@ -5,13 +5,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: orderdb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,12 +23,12 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: [ "CMD", "rabbitmq-diagnostics", "check_port_connectivity" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,18 +38,21 @@ services:
       context: .
       dockerfile: service/Dockerfile
     container_name: service
+    ports:
+      - "${SERVICE_SERVER_PORT}:${SERVICE_SERVER_PORT}"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: guest
-      SPRING_RABBITMQ_PASSWORD: guest
-      RABBITMQ_QUEUE_ORDER: order_queue
-      RABBITMQ_QUEUE_ORDER_DLQ: order_dlq
-      RABBITMQ_EXCHANGE_ORDER_DLX: order_dlx
-      RABBITMQ_LISTENER_MAX_RETRIES: 3
+      SERVER_PORT: ${SERVICE_SERVER_PORT}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      SPRING_RABBITMQ_HOST: ${SPRING_RABBITMQ_HOST}
+      SPRING_RABBITMQ_PORT: ${SPRING_RABBITMQ_PORT}
+      SPRING_RABBITMQ_USERNAME: ${SPRING_RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${SPRING_RABBITMQ_PASSWORD}
+      RABBITMQ_QUEUE_ORDER: ${RABBITMQ_QUEUE_ORDER}
+      RABBITMQ_QUEUE_ORDER_DLQ: ${RABBITMQ_QUEUE_ORDER_DLQ}
+      RABBITMQ_EXCHANGE_ORDER_DLX: ${RABBITMQ_EXCHANGE_ORDER_DLX}
+      RABBITMQ_LISTENER_MAX_RETRIES: ${RABBITMQ_LISTENER_MAX_RETRIES}
     networks:
       - app-network
     depends_on:
@@ -57,6 +60,12 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:${SERVICE_SERVER_PORT}/actuator/health/liveness" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   api:
     build:
@@ -64,17 +73,23 @@ services:
       dockerfile: api/Dockerfile
     container_name: api
     ports:
-      - "8080:8080"
+      - "${API_SERVER_PORT}:${API_SERVER_PORT}"
     environment:
-      SERVER_PORT: 8080
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SERVER_PORT: ${API_SERVER_PORT}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
     networks:
       - app-network
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:${API_SERVER_PORT}/actuator/health/liveness" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 networks:
   app-network:

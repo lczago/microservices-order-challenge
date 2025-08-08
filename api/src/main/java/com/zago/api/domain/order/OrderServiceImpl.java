@@ -1,11 +1,8 @@
 package com.zago.api.domain.order;
 
 import com.zago.api.domain.order.dto.OrderDto;
-import com.zago.api.domain.order.dto.OrderItemDto;
 import com.zago.domain.order.OrderEntity;
 import com.zago.domain.order.OrderRepository;
-import com.zago.domain.order.item.OrderItemEntity;
-import com.zago.domain.order.item.OrderItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,9 +15,6 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
-
-    @Autowired
-    private OrderItemRepository orderItemRepository;
 
     @Override
     public BigDecimal getOrderTotal(Long orderId) {

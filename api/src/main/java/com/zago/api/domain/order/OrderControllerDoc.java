@@ -31,7 +31,6 @@ public interface OrderControllerDoc {
                     description = "Order total retrieved successfully",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderTotalDto.class))
             ),
-            @ApiResponse(responseCode = "404", description = "Order not found", content = @Content),
             @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
     })
     @GetMapping("/{orderId}/total")
@@ -49,7 +48,6 @@ public interface OrderControllerDoc {
                     description = "Order count retrieved successfully",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = CustomerOrderQuantityDto.class))
             ),
-            @ApiResponse(responseCode = "404", description = "Customer not found", content = @Content),
             @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
     })
     @GetMapping("/count/customer/{customerId}")
@@ -67,7 +65,6 @@ public interface OrderControllerDoc {
                     description = "Orders retrieved successfully",
                     content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = OrderDto.class)))
             ),
-            @ApiResponse(responseCode = "404", description = "Customer not found", content = @Content),
             @ApiResponse(responseCode = "500", description = "Internal server error", content = @Content)
     })
     @GetMapping("/customer/{customerId}")

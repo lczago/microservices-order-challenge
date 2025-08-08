@@ -1,4 +1,4 @@
-package com.zago.service.infrastructure.config;
+package com.zago.service.infrastructure.config.dependency;
 
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.ComponentScan;
