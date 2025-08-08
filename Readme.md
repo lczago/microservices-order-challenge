@@ -6,7 +6,7 @@
 - [Diagramas](#diagramas)
 - [Rodando local com docker](#rodando-local-com-docker)
 - [Docker hub](#docker-hub)
-
+- [Bonus](#bonus)
 
 # Introdução & Arquitetura
 
@@ -87,9 +87,11 @@ ___
 
 ___
 
-[AWS](https://github.com/lczago/microservices-order-challenge/blob/main/aws_diagram.png)
+## AWS
+![AWS](https://github.com/lczago/microservices-order-challenge/blob/main/aws_diagram.png)
 
-[Relacionamento Postgres](https://github.com/lczago/microservices-order-challenge/blob/main/database_diagram.png)
+## Relacionamento Postgres
+![Relacionamento Postgres](https://github.com/lczago/microservices-order-challenge/blob/main/database_diagram.png)
 
 ___
 
@@ -135,5 +137,22 @@ ___
 [api image](https://hub.docker.com/r/lczago/orders-api)
 
 [service image](https://hub.docker.com/r/lczago/orders-service)
+
+___
+
+# **Bonus**
+
+___
+
+Considerando que o projeto foi finalizado antes do prazo, adicionei como bonus, caso seja interessante, as stacks de
+cloduformation para subir todo o sistema em ambiente AWS.
+
+O código e o guia para execução se encontra em
+
+[branch - cloudformation](https://github.com/lczago/microservices-order-challenge/tree/feature/cloudformation)
+
+[código](https://github.com/lczago/microservices-order-challenge/tree/feature/cloudformation/cloudformation)
+
+[Readme de execução](https://github.com/lczago/microservices-order-challenge/blob/feature/cloudformation/aws_cloudformation_readme.md)
 
 ___
