@@ -66,9 +66,6 @@ application-*.yml
 !application-test.properties
 !application-test.yml
 
-# Docker
-.env
-
 # Misc
 HELP.md
 .env.local
