@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Main CloudFormation template for Dock Account API with nested stacks'
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: The name of the application. Used as a prefix for resource names.
+
+  DbName:
+    Description: Name of the database
+    Type: String
+    Default: "account"
+
+  DbSecretsName:
+    Type: String
+    Description: The name of the AWS Secrets Manager secret containing the database credentials.
+    Default: "db_secrets"
+
+  EcrRepositoryUrl:
+    Type: String
+    Description: The URL of the ECR repository.
+
+  ServiceEcrRepositoryUrl:
+    Type: String
+    Description: The URL of the Service ECR repository.
+
+  RabbitEcrRepositoryUrl:
+    Type: String
+    Description: The URL of the RabbitMQ ECR repository.
+
+  Bucket:
+    Type: String
+    Description: S3 bucket containing all templates
+
+Resources:
+  CloudFormationS3AccessRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: CloudFormationS3ReadAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:GetBucketLocation'
+                Resource:
+                  - !Sub 'arn:aws:s3:::${Bucket}'
+  VpcStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: CloudFormationS3AccessRole
+    Properties:
+      TemplateURL: !Sub "https://${Bucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/template/vpc.yml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+
+  DatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VpcStack
+    Properties:
+      TemplateURL: !Sub "https://${Bucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/template/database.yml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        DbName: !Ref DbName
+        DbSecretsName: !Ref DbSecretsName
+
+  AppStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: DatabaseStack
+    Properties:
+      TemplateURL: !Sub "https://${Bucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/template/app.yml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        DbName: !Ref DbName
+        DbSecretsName: !Ref DbSecretsName
+        EcrRepositoryUrl: !Ref EcrRepositoryUrl
+        ServiceEcrRepositoryUrl: !Ref ServiceEcrRepositoryUrl
+        RabbitEcrRepositoryUrl: !Ref RabbitEcrRepositoryUrl
+
+  ApiGatewayStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - AppStack
+    Properties:
+      TemplateURL: !Sub "https://${Bucket}.s3.${AWS::Region}.amazonaws.com/cloudformation/template/api-gateway.yml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+
+Outputs:
+  CloudFormationS3AccessRoleArn:
+    Description: The ARN of the created IAM role
+    Value: !GetAtt CloudFormationS3AccessRole.Arn
